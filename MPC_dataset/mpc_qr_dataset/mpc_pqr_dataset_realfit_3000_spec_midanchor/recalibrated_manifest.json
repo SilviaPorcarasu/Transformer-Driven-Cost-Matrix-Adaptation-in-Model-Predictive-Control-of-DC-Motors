@@ -1,0 +1,9 @@
+{
+  "input_root": "MPC_dataset\\mpc_qr_dataset\\mpc_pqr_dataset_realfit_3000_merged",
+  "recalibration_csv": "reports\\recalibrate_existing_specs_3000_midanchor\\spec_best_per_sample.csv",
+  "output_root": "MPC_dataset\\mpc_qr_dataset\\mpc_pqr_dataset_realfit_3000_spec_midanchor",
+  "converted": 3000,
+  "failed": 0,
+  "format": "motor_pqr_sample_folder",
+  "target_source": "spec_based_recalibration"
+}

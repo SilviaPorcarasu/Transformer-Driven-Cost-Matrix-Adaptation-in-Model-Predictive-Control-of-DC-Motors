@@ -1,4 +1,4 @@
-# Local system and Python cache files
+# Local files and Python caches
 .DS_Store
 __pycache__/
 *.py[cod]
@@ -7,25 +7,37 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-
-# Local credentials
 .env
 .env.*
 !.env.example
 
-# Training checkpoints, logs, and generated evaluations
+# Outputs and earlier experiments are kept locally, outside the paper repository.
 /runs/
-/MPC_src/mpc_pqr_run_logspace_norm/
-
-# Generated diagrams and non-code exports
-/MPC_src/*.png
-/MPC_src/*.pdf
-/MPC_src/*.svg
-/MPC_src/*.d2
+/reports/
+/figures/
+/best/
 /Documentatie/
 /GHID_COMPLET_PROIECT.md
+/Dockerfile
+/.dockerignore
+/environment.yml
+/export_scripts_fixed_no_masks/
 /export_scripts_fixed_no_masks.zip
 
-# Keep both project-created datasets, including their data files:
-# /MPC_dataset/
-# /MPC_src/mpc_pqr_dataset_streaming_debug_500_samples/
+# Only the paper's final 3,000-sample DC motor dataset and its generation code.
+/MPC_dataset/*
+!/MPC_dataset/mpc_qr_dataset/
+/MPC_dataset/mpc_qr_dataset/*
+!/MPC_dataset/mpc_qr_dataset/create_mpc_dataset.py
+!/MPC_dataset/mpc_qr_dataset/enrich_qr_dataset_with_pqr.py
+!/MPC_dataset/mpc_qr_dataset/recalibrate_existing_specs.py
+!/MPC_dataset/mpc_qr_dataset/build_recalibrated_pqr_dataset.py
+!/MPC_dataset/mpc_qr_dataset/mpc_pqr_dataset_realfit_3000_spec_midanchor/
+
+# Training and evaluation code for the model described in the paper.
+/MPC_src/*
+!/MPC_src/dataset.py
+!/MPC_src/model.py
+!/MPC_src/train.py
+!/MPC_src/evaluate_motor_pqr.py
+!/MPC_src/generate_control_plots.py

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import time
+import argparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -83,6 +84,7 @@ class DatasetConfig:
     print_every_sample: bool = True
     plot_first_successful_sample: bool = False
     chunk_jsonl_manifest: bool = False  # optional if you still want a manifest
+    resume: bool = False
 
 
 # ============================================================
@@ -794,6 +796,17 @@ class DatasetWriter:
             writer = csv.DictWriter(f, fieldnames=list(failure_row.keys()))
             writer.writerow(failure_row)
 
+    def sample_done(self, sample_id: int) -> bool:
+        sample_dir = self.samples_dir / f"sample_{sample_id:06d}"
+        return (
+            (sample_dir / "meta.json").exists()
+            and (sample_dir / "signals.npz").exists()
+            and (
+                not self.save_closed_loop_trajectories
+                or (sample_dir / "closed_loop.npz").exists()
+            )
+        )
+
 
 # ============================================================
 # Dataset generation (streaming)
@@ -849,6 +862,24 @@ def generate_dataset_streaming(
             x0 = np.array(scfg.x0, dtype=float)
 
             seed = int(rng.integers(0, 1_000_000))
+
+            if dataset_cfg.resume and writer.sample_done(sample_id):
+                n_success += 1
+                if first_success_record is None:
+                    meta_path = output_dir / "samples" / f"sample_{sample_id:06d}" / "meta.json"
+                    try:
+                        with meta_path.open("r", encoding="utf-8") as f:
+                            first_success_record = json.load(f)
+                    except Exception:
+                        first_success_record = None
+                if dataset_cfg.print_every_sample:
+                    print(
+                        f"[SKIP] sample={sample_id:06d} "
+                        f"model={model_idx} scenario={scenario_idx} already exists",
+                        flush=True,
+                    )
+                sample_id += 1
+                continue
 
             result = find_optimal_qr_fast(
                 controller=controller,
@@ -1102,47 +1133,90 @@ def plot_dataset_distributions(summary_csv_path: Path) -> None:
 # ============================================================
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate a streaming QR dataset for the DC motor MPC problem.")
+    parser.add_argument("--n_models", type=int, default=20)
+    parser.add_argument("--scenarios_per_model", type=int, default=10)
+    parser.add_argument("--random_seed", type=int, default=42)
+    parser.add_argument("--output_dir", type=str, default="mpc_qr_dataset_streaming")
+    parser.add_argument("--Ts", type=float, default=0.02)
+    parser.add_argument("--horizon", type=int, default=15)
+    parser.add_argument("--sim_steps", type=int, default=120)
+    parser.add_argument("--u_min", type=float, default=-24.0)
+    parser.add_argument("--u_max", type=float, default=24.0)
+    parser.add_argument("--du_min", type=float, default=-4.0)
+    parser.add_argument("--du_max", type=float, default=4.0)
+    parser.add_argument("--solver_max_iter", type=int, default=4000)
+    parser.add_argument("--n_lhs_candidates", type=int, default=12)
+    parser.add_argument("--powell_maxiter", type=int, default=25)
+    parser.add_argument("--q_min_exp", type=float, default=-3.0)
+    parser.add_argument("--q_max_exp", type=float, default=3.0)
+    parser.add_argument("--r_min_exp", type=float, default=-4.0)
+    parser.add_argument("--r_max_exp", type=float, default=2.0)
+    parser.add_argument("--Ra", type=float, default=2.0)
+    parser.add_argument("--La", type=float, default=0.5)
+    parser.add_argument("--J", type=float, default=0.02)
+    parser.add_argument("--b", type=float, default=0.2)
+    parser.add_argument("--Kt", type=float, default=0.1)
+    parser.add_argument("--Ke", type=float, default=0.1)
+    parser.add_argument("--params_json", type=str, default=None,
+                        help="JSON produced by datasets/fit_motor_params_from_mat.py")
+    parser.add_argument("--resume", action="store_true",
+                        help="Skip complete sample folders that already exist in output_dir.")
+    parser.add_argument("--quiet", action="store_true")
+    args = parser.parse_args()
+
+    if args.params_json is not None:
+        with open(args.params_json, "r", encoding="utf-8") as f:
+            fitted = json.load(f)["params"]
+        args.Ra = fitted["Ra"]
+        args.La = fitted["La"]
+        args.J = fitted["J"]
+        args.b = fitted["b"]
+        args.Kt = fitted["Kt"]
+        args.Ke = fitted["Ke"]
+
     nominal_motor = MotorParams(
-        Ra=2.0,
-        La=0.5,
-        J=0.02,
-        b=0.2,
-        Kt=0.1,
-        Ke=0.1,
+        Ra=args.Ra,
+        La=args.La,
+        J=args.J,
+        b=args.b,
+        Kt=args.Kt,
+        Ke=args.Ke,
     )
 
     mpc_cfg = MPCConfig(
-        Ts=0.02,
-        horizon=15,
-        sim_steps=120,
-        u_min=-24.0,
-        u_max=24.0,
-        du_min=-4.0,
-        du_max=4.0,
+        Ts=args.Ts,
+        horizon=args.horizon,
+        sim_steps=args.sim_steps,
+        u_min=args.u_min,
+        u_max=args.u_max,
+        du_min=args.du_min,
+        du_max=args.du_max,
         solver="OSQP",
-        solver_max_iter=4000,
+        solver_max_iter=args.solver_max_iter,
     )
 
     search_cfg = SearchConfig(
-        n_lhs_candidates=12,   # fast global search
+        n_lhs_candidates=args.n_lhs_candidates,
         use_powell=True,       # local refinement
-        powell_maxiter=25,     # keep moderate for speed
-        q_min_exp=-3.0,
-        q_max_exp=3.0,
-        r_min_exp=-4.0,
-        r_max_exp=2.0,
+        powell_maxiter=args.powell_maxiter,
+        q_min_exp=args.q_min_exp,
+        q_max_exp=args.q_max_exp,
+        r_min_exp=args.r_min_exp,
+        r_max_exp=args.r_max_exp,
     )
 
     dataset_cfg = DatasetConfig(
-        n_models=20,
-        scenarios_per_model=10,
-        random_seed=42,
-        output_dir="mpc_qr_dataset_streaming",
+        n_models=args.n_models,
+        scenarios_per_model=args.scenarios_per_model,
+        random_seed=args.random_seed,
+        output_dir=args.output_dir,
         save_closed_loop_trajectories=True,
         save_signals_npz=True,
-        print_every_sample=True,
+        print_every_sample=not args.quiet,
         plot_first_successful_sample=False,
         chunk_jsonl_manifest=False,
+        resume=args.resume,
     )
 
     n_success, n_total, first_success_record = generate_dataset_streaming(

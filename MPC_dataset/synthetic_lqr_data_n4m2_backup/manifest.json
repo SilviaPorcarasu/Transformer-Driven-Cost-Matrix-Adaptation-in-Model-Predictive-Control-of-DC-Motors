@@ -1,9 +1,0 @@
-{
-  "num_systems": 200,
-  "episodes_per_system": 50,
-  "n": 4,
-  "m": 2,
-  "T": 256,
-  "seed": 42,
-  "shard_size": 500
-}
