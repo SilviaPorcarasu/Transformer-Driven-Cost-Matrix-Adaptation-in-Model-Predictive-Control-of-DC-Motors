@@ -1,0 +1,31 @@
+# Local system and Python cache files
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local credentials
+.env
+.env.*
+!.env.example
+
+# Training checkpoints, logs, and generated evaluations
+/runs/
+/MPC_src/mpc_pqr_run_logspace_norm/
+
+# Generated diagrams and non-code exports
+/MPC_src/*.png
+/MPC_src/*.pdf
+/MPC_src/*.svg
+/MPC_src/*.d2
+/Documentatie/
+/GHID_COMPLET_PROIECT.md
+/export_scripts_fixed_no_masks.zip
+
+# Keep both project-created datasets, including their data files:
+# /MPC_dataset/
+# /MPC_src/mpc_pqr_dataset_streaming_debug_500_samples/
