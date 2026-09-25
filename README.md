@@ -24,32 +24,5 @@ Use Python 3.11 or later and install the project dependencies:
 python -m pip install -r requirements.txt
 ```
 
-## Train the paper configuration
 
-Run from the repository root:
 
-```bash
-python MPC_src/train.py \
-  --data_root MPC_dataset/mpc_qr_dataset/mpc_pqr_dataset_realfit_3000_spec_midanchor \
-  --arch transformer --seq_pool attention --target_mode log_diag \
-  --target_loss huber --target_loss_p huber --target_loss_q huber --target_loss_r mse \
-  --epochs 30 --batch_size 64 --weight_decay 0.03 --dropout 0.2 \
-  --d_model 128 --tx_layers 2 --tx_heads 4 --seed 42 --device cpu \
-  --out_dir runs/paper_model
-```
-
-Training saves the best checkpoint and normalization statistics in `runs/paper_model/`.
-
-## Evaluate
-
-```bash
-python MPC_src/evaluate_motor_pqr.py \
-  --checkpoint runs/paper_model/best.pt \
-  --data_root MPC_dataset/mpc_qr_dataset/mpc_pqr_dataset_realfit_3000_spec_midanchor
-
-python MPC_src/generate_control_plots.py \
-  --checkpoint runs/paper_model/best.pt \
-  --data_root MPC_dataset/mpc_qr_dataset/mpc_pqr_dataset_realfit_3000_spec_midanchor
-```
-
-The dataset snapshot is ready for training and evaluation. Its manifest records paths to intermediate files used during the original recalibration; those intermediate files are not required to load the final samples.
